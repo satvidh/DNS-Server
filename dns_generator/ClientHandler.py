@@ -1,5 +1,8 @@
 import threading
 from dns_generator import DNSGen
+import logging 
+
+logger = logging.getLogger(__name__)
 
 
 class ClientHandler(threading.Thread):
@@ -9,6 +12,7 @@ class ClientHandler(threading.Thread):
 
     def __init__(self, address, data, sock):
         threading.Thread.__init__(self)
+        logger.info("Connection from {0}".format(address))
         self.client_address = address
         self.dns_gen = DNSGen(data)
         self.sock = sock
@@ -16,4 +20,4 @@ class ClientHandler(threading.Thread):
     def run(self):
         resp = self.dns_gen.make_response()
         self.sock.sendto(self.dns_gen.make_response(), self.client_address)
-        print("Request from {0} for {1}".format(self.client_address, self.dns_gen.domain))
+        logger.info("Request from {0} for {1}".format(self.client_address, self.dns_gen.domain))
