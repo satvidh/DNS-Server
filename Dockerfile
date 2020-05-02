@@ -3,7 +3,7 @@ FROM python:3.8
 RUN mkdir /app
 
 COPY Server.py /app/Server.py
-COPY dns_generator/* /app/dns_generator/*
+COPY dns_generator/* /app/dns_generator/
 COPY requirements.txt /app/requirements.txt
 
 WORKDIR /app
