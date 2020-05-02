@@ -1,40 +1,41 @@
 import json
 import os
+import dns.resolver 
 
 QUESTION_TYPES = {
     b"\x00\x01": "a"
 }
-ZONES = {}  # Holds hostname -> record data, cannot grow as server runs
+# ZONES = {}  # Holds hostname -> record data, cannot grow as server runs
 
 
-def load_zones():
-    global ZONES
-    json_zone = {}
-    zones_path = "Zones"
-    files = []
-    try:
-        files = os.listdir(zones_path)
-    except FileNotFoundError:
-        zones_path = "..\Zones"
-        files = os.listdir(zones_path)
-    for zone_file in os.listdir(zones_path):
-        with open(os.path.join(zones_path, zone_file), "r") as f:
-            data = json.load(f)
-            zone_name = data["$origin"]
-            json_zone[zone_name] = data
-    return json_zone
-ZONES = load_zones()
+# def load_zones():
+#     global ZONES
+#     json_zone = {}
+#     zones_path = "Zones"
+#     files = []
+#     try:
+#         files = os.listdir(zones_path)
+#     except FileNotFoundError:
+#         zones_path = "..\Zones"
+#         files = os.listdir(zones_path)
+#     for zone_file in os.listdir(zones_path):
+#         with open(os.path.join(zones_path, zone_file), "r") as f:
+#             data = json.load(f)
+#             zone_name = data["$origin"]
+#             json_zone[zone_name] = data
+#     return json_zone
+# ZONES = load_zones()
 
 
-def get_zone(domain):
-        global ZONES
-        zone_name = ".".join(domain)
-        zone = {}
-        try:
-            zone = ZONES[zone_name]
-        except KeyError:
-            return None
-        return zone
+# def get_zone(domain):
+#         global ZONES
+#         zone_name = ".".join(domain)
+#         zone = {}
+#         try:
+#             zone = ZONES[zone_name]
+#         except KeyError:
+#             return None
+#         return zone
 
 
 class DNSGen(object):
@@ -88,8 +89,10 @@ class DNSGen(object):
                         domain_parts.append(domain_string)
                         domain_string = ""
                         state = 0   # ensure that next loop captures the byte length of the next label
+                        x = 0
                     if byte == 0:   # Check if we have reached the end of the question domain
-                        domain_parts.append(domain_string)
+                        if domain_string:
+                            domain_parts.append(domain_string)
                         break
                 else:
                     state = 1
@@ -111,10 +114,30 @@ class DNSGen(object):
             qt = QUESTION_TYPES[question_type]
         except KeyError:
             qt = "a"
-        zone = get_zone(domain)
-        if zone is None:
-            return [], qt, domain   # empty list ensure a domain we don't have returns correct data
-        return zone[qt], qt, domain
+        if qt == "a" and self.domain.endswith("amazonaws.com"):
+            records = [
+                {"name": domain,
+                 "ttl": 400,
+                 "value": "10.4.0.253"
+                }
+            ]
+        else:
+            resolver = dns.resolver.Resolver(configure=False)
+            resolver.nameservers = ['8.8.8.8']
+            results = resolver.query(self.domain, qt)
+            records = [
+                {
+                    "name": domain,
+                    "ttl": 400,
+                    "value": result.address
+                }
+                for result in results
+            ]
+        return records, qt, domain
+        # zone = get_zone(domain)
+        # if zone is None:
+        #     return [], qt, domain   # empty list ensure a domain we don't have returns correct data
+        # return zone[qt], qt, domain
 
     @staticmethod
     def _record_to_bytes(domain_name, record_type, record_ttl, record_value):
